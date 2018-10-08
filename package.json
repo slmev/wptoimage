@@ -7,6 +7,10 @@
     "wptoimage": "index.js"
   },
   "author": "slmev",
+  "keywords": [
+    "puppeteer",
+    "screenshot"
+  ],
   "license": "MIT",
   "dependencies": {
     "commander": "^2.18.0",

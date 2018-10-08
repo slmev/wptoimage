@@ -41,7 +41,7 @@ program.allowUnknownOption()
            (async () => {
                 const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
                 const page = await browser.newPage();
-                await page.goto(newInputFile);
+                await page.goto(newInputFile, { timeout: 60000 });
                 await page.setViewport({
                     width: Number(shotW) || 790,
                     height: Number(shotH) || (fullPage === 'false' ? 600 : 1),

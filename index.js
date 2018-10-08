@@ -15,16 +15,10 @@ program.allowUnknownOption()
        .option('--full-page <bool>', '设置是否截取完整页面, 默认为true')
        .action(function(inputFile, outputFile) {
             const { shotW, shotH, fullPage } = program;
-            console.log('----------');
-            console.log(inputFile, outputFile);
-            console.log(path.resolve(inputFile), path.resolve(outputFile));
-            console.log('----------');
             let newInputFile;
             // 判断文件是否存在
             fs.access(inputFile, fs.constants.F_OK, (err) => {
-                console.log(`${inputFile} ${err ? '不存在' : '存在'}`);
                 if (err) {
-                    console.log(/^http(s)?:\/\//.test(inputFile));
                     if (/^http(s)?:\/\//.test(inputFile)) {
                         newInputFile = inputFile;
                     } else {
@@ -45,7 +39,7 @@ program.allowUnknownOption()
                 }
             });
            (async () => {
-                const browser = await puppeteer.launch({args:['--no-sandbox']});
+                const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
                 const page = await browser.newPage();
                 await page.goto(newInputFile);
                 await page.setViewport({

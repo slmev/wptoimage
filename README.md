@@ -32,6 +32,11 @@ cnpm i wptoimage -g
 ```
 2、在linux下还可能会出现其他的问题[https://github.com/GoogleChrome/puppeteer/blob/master/docs/troubleshooting.md](https://github.com/GoogleChrome/puppeteer/blob/master/docs/troubleshooting.md)  
 主要是因为沙箱和Chromium依赖包未安装的原因。
+3、CentOS6需要在`~/.bashrc`文件配置环境变量
+```
+文件末尾添加
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/firefox/bundled/lib64
+```
 
 ### 安装成功后出现的问题：
 1、~~`linux`本地文件的绝对路径需要在路径前面手动添加`file://`，puppeteer不然无法识别，会报错为无效的URL。~~ 代码已添加系统判断并添加`file://`。  

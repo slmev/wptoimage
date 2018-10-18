@@ -1,6 +1,6 @@
 {
   "name": "wptoimage",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "通过puppeteer的网页截图功能实现把网页转换为图片",
   "main": "index.js",
   "bin": {
@@ -13,6 +13,10 @@
     "screenshot"
   ],
   "license": "MIT",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node index.js demo.html demo.jpg"
+  },
   "dependencies": {
     "commander": "^2.18.0",
     "puppeteer": "^1.8.0"

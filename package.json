@@ -18,7 +18,7 @@
     "test": "node index.js demo.html demo.jpg"
   },
   "dependencies": {
-    "commander": "^2.18.0",
-    "puppeteer": "^1.8.0"
+    "commander": "^2.20.0",
+    "puppeteer": "^1.17.0"
   }
 }

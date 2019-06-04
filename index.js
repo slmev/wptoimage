@@ -52,7 +52,7 @@ program.allowUnknownOption()
                 await page.screenshot({
                     path: path.resolve(outputFile),
                     type: 'jpeg',
-                    quality: shotQ || 100, // 默认质量为100
+                    quality: Number(shotQ) || 100, // 默认质量为100
                     fullPage,
                 });
                 await browser.close();

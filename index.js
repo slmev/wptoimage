@@ -13,10 +13,11 @@ program.allowUnknownOption()
     .usage('[options] <input file> <output file>')
     .option('-x, --shot-w <int>', '设置图片宽度')
     .option('-y, --shot-h <int>', '设置图片高度')
+    .option('-q, --shot-q <int>', '设置图片质量')
     .option('--no-full-page', '取消截取完整页面, 默认宽为860， 高为600')
     .action(function (inputFile, outputFile) {
         try {
-            const { shotW, shotH, fullPage } = program;
+            const { shotW, shotH, shotQ, fullPage } = program;
             let newInputFile;
             // 判断文件是否存在
             fs.access(inputFile, fs.constants.F_OK, (err) => {
@@ -51,7 +52,7 @@ program.allowUnknownOption()
                 await page.screenshot({
                     path: path.resolve(outputFile),
                     type: 'jpeg',
-                    // quality: 100, // 默认质量普通页面和质量100普通页面肉眼查看没有区别，但是大小基本翻倍
+                    quality: shotQ || 100, // 默认质量为100
                     fullPage,
                 });
                 await browser.close();

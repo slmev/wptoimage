@@ -39,6 +39,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/firefox/bundled/lib64
 ```
 
 ### 安装成功后出现的问题：
-1、~~`linux`本地文件的绝对路径需要在路径前面手动添加`file://`，puppeteer不然无法识别，会报错为无效的URL。~~ 代码已添加系统判断并添加`file://`。  
+1、~~`linux`本地文件的绝对路径需要在路径前面手动添加`file://`，不然puppeteer无法识别，会报错为无效的URL。~~ 代码已添加系统判断并添加`file://`。  
 
-2、~~LF与CRLF的问题，由于上传到到npm的文件问CRLF导致在linux中会出现问题，#!/usr/bin/env node无法识别node路径，报<font color="red">no such file or directory</font>。~~ 修改为LF后能够正常使用。
+2、~~LF与CRLF的问题，由于上传到到npm的文件为CRLF编码导致在linux中会出现问题，#!/usr/bin/env node无法识别node路径，报<font color="red">no such file or directory</font>。~~ 修改为LF后能够正常使用。

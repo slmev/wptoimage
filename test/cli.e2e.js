@@ -120,6 +120,8 @@ test('CLI creates jpg and png screenshots', { timeout: 120000 }, async () => {
         await execFileAsync(process.execPath, [
             binPath,
             '--no-full-page',
+            '--wait-fonts',
+            '--wait-images',
             '-x',
             '320',
             '-y',

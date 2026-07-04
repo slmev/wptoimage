@@ -124,6 +124,8 @@ test('buildScreenshotConfig does not pass quality for png output', () => {
 test('buildNavigationConfig uses safe defaults', () => {
     assert.deepEqual(buildNavigationConfig({}), {
         delay: 0,
+        waitFonts: false,
+        waitImages: false,
         goto: {
             timeout: 60000,
             waitUntil: 'load',
@@ -135,8 +137,12 @@ test('buildNavigationConfig parses wait event and delay', () => {
     assert.deepEqual(buildNavigationConfig({
         waitUntil: 'networkidle0',
         delay: '500',
+        waitFonts: true,
+        waitImages: true,
     }), {
         delay: 500,
+        waitFonts: true,
+        waitImages: true,
         goto: {
             timeout: 60000,
             waitUntil: 'networkidle0',
@@ -206,6 +212,7 @@ async function assertCliFails(args, messagePattern) {
 
 test('CLI rejects unsupported output extensions without launching a browser', async () => {
     await assertCliFails(['demo.html', 'out.webp'], /must end with/);
+    await assertCliFails(['--wait-fonts', '--wait-images', 'demo.html', 'out.webp'], /must end with/);
 });
 
 test('CLI rejects invalid width, height, and quality values', async () => {

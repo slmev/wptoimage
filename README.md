@@ -34,6 +34,7 @@ wptoimage file:///Users/me/pages/report.html report.png
 wptoimage https://example.com page.png
 wptoimage -d 3 demo.html demo.png
 wptoimage --wait-until networkidle0 --delay 500 demo.html demo.png
+wptoimage --wait-fonts --wait-images demo.html demo.png
 wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 ```
 
@@ -45,6 +46,8 @@ wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 - `-d, --device-scale-factor <number>`：设置设备像素比，默认 `2`，值越高图片越清晰但文件越大；如需旧尺寸可设为 `1`
 - `--wait-until <event>`：设置页面等待事件，可选 `load`、`domcontentloaded`、`networkidle0`、`networkidle2`，默认 `load`
 - `--delay <ms>`：页面加载完成后额外等待的毫秒数，默认 `0`
+- `--wait-fonts`：截图前等待页面字体加载完成
+- `--wait-images`：截图前等待页面图片加载或解码完成
 - `--no-full-page`：取消截取完整页面，只截取当前视口
 
 输出文件支持：
@@ -91,10 +94,10 @@ PUPPETEER_EXECUTABLE_PATH="/path/to/chrome" npm run test:e2e
 如果页面依赖异步图片、字体或接口数据，可以使用更保守的等待策略：
 
 ```bash
-wptoimage --wait-until networkidle0 --delay 500 demo.html demo.png
+wptoimage --wait-until networkidle0 --delay 500 --wait-fonts --wait-images demo.html demo.png
 ```
 
-`networkidle0` 会等待网络连接空闲，`--delay` 会在页面加载完成后再额外等待一段时间。
+`networkidle0` 会等待网络连接空闲，`--delay` 会在页面加载完成后再额外等待一段时间。`--wait-fonts` 会等待字体就绪，`--wait-images` 会等待图片加载或解码完成，适合对输出清晰度和资源完整性要求更高的截图。
 
 ### Puppeteer 安装时下载 Chrome 失败
 

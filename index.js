@@ -190,6 +190,8 @@ function buildScreenshotConfig(options, outputFile) {
 function buildNavigationConfig(options) {
     return {
         delay: options.delay ? parseNonNegativeInt(options.delay, 'delay') : 0,
+        waitFonts: options.waitFonts === true,
+        waitImages: options.waitImages === true,
         goto: {
             timeout: 60000,
             waitUntil: options.waitUntil ? parseWaitUntil(options.waitUntil) : 'load',
@@ -199,6 +201,56 @@ function buildNavigationConfig(options) {
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForFonts(page) {
+    await page.evaluate(() => {
+        if (!document.fonts || !document.fonts.ready) {
+            return undefined;
+        }
+
+        return document.fonts.ready.then(() => undefined);
+    });
+}
+
+async function waitForImages(page) {
+    await page.evaluate(async () => {
+        const images = Array.from(document.images);
+
+        await Promise.all(images.map(async (image) => {
+            if (image.complete && image.naturalWidth > 0) {
+                return;
+            }
+
+            if (typeof image.decode === 'function') {
+                try {
+                    await image.decode();
+                    return;
+                } catch (err) {
+                    // Fall through to the load/error listeners for browsers that reject decode early.
+                }
+            }
+
+            if (image.complete) {
+                return;
+            }
+
+            await new Promise((resolve) => {
+                image.addEventListener('load', resolve, { once: true });
+                image.addEventListener('error', resolve, { once: true });
+            });
+        }));
+    });
+}
+
+async function waitForPageReadiness(page, navigation) {
+    if (navigation.waitFonts) {
+        await waitForFonts(page);
+    }
+
+    if (navigation.waitImages) {
+        await waitForImages(page);
+    }
 }
 
 async function capture(inputFile, outputFile, options = {}, browserLib = puppeteer) {
@@ -219,6 +271,7 @@ async function capture(inputFile, outputFile, options = {}, browserLib = puppete
         if (navigation.delay > 0) {
             await delay(navigation.delay);
         }
+        await waitForPageReadiness(page, navigation);
         await page.screenshot(screenshot);
     } finally {
         if (browser) {
@@ -240,6 +293,8 @@ function createProgram() {
         .option('-d, --device-scale-factor <number>', '设置设备像素比，默认2，值越高图片越清晰但文件越大')
         .option('--wait-until <event>', '设置页面等待事件，可选 load、domcontentloaded、networkidle0、networkidle2，默认 load')
         .option('--delay <ms>', '页面加载完成后额外等待的毫秒数，默认0')
+        .option('--wait-fonts', '截图前等待页面字体加载完成')
+        .option('--wait-images', '截图前等待页面图片加载或解码完成')
         .option('--no-full-page', '取消截取完整页面, 默认宽为860， 高为600')
         .action(async function (inputFile, outputFile) {
             await capture(inputFile, outputFile, program.opts());
@@ -280,4 +335,7 @@ module.exports = {
     parseQuality,
     parseWaitUntil,
     runCli,
+    waitForFonts,
+    waitForImages,
+    waitForPageReadiness,
 };

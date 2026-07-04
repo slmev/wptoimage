@@ -103,6 +103,7 @@ test('CLI creates jpg and png screenshots', { timeout: 120000 }, async () => {
         const jpgOutput = path.join(tempDir, 'demo.jpg');
         const pngInput = path.join(tempDir, 'input.html');
         const pngOutput = path.join(tempDir, 'demo.png');
+        const enhancedJpgOutput = path.join(tempDir, 'enhanced.jpg');
         const fileUrlOutput = path.join(tempDir, 'file-url.png');
 
         await fs.writeFile(pngInput, '<!doctype html><title>wptoimage</title><main style="width:320px;height:180px;background:#fff;color:#111">test</main>');
@@ -122,12 +123,26 @@ test('CLI creates jpg and png screenshots', { timeout: 120000 }, async () => {
             '--no-full-page',
             '--wait-fonts',
             '--wait-images',
+            '--enhance',
             '-x',
             '320',
             '-y',
             '240',
             pngInput,
             pngOutput,
+        ], { env: getEnv() });
+        await execFileAsync(process.execPath, [
+            binPath,
+            '--no-full-page',
+            '--enhance',
+            '-x',
+            '320',
+            '-y',
+            '240',
+            '-q',
+            '90',
+            pngInput,
+            enhancedJpgOutput,
         ], { env: getEnv() });
         await execFileAsync(process.execPath, [
             binPath,
@@ -142,9 +157,11 @@ test('CLI creates jpg and png screenshots', { timeout: 120000 }, async () => {
 
         await assertNonEmptyFile(jpgOutput);
         await assertNonEmptyFile(pngOutput);
+        await assertNonEmptyFile(enhancedJpgOutput);
         await assertNonEmptyFile(fileUrlOutput);
         await assertImageSize(jpgOutput, 640, 480);
         await assertImageSize(pngOutput, 640, 480);
+        await assertImageSize(enhancedJpgOutput, 640, 480);
         await assertImageSize(fileUrlOutput, 640, 480);
     } finally {
         await fs.rm(tempDir, { recursive: true, force: true });

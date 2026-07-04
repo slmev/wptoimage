@@ -35,6 +35,7 @@ wptoimage https://example.com page.png
 wptoimage -d 3 demo.html demo.png
 wptoimage --wait-until networkidle0 --delay 500 demo.html demo.png
 wptoimage --wait-fonts --wait-images demo.html demo.png
+wptoimage --enhance demo.html demo.png
 wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 ```
 
@@ -48,6 +49,7 @@ wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 - `--delay <ms>`：页面加载完成后额外等待的毫秒数，默认 `0`
 - `--wait-fonts`：截图前等待页面字体加载完成
 - `--wait-images`：截图前等待页面图片加载或解码完成
+- `--enhance`：截图后进行轻微锐化和格式编码优化，不改变图片尺寸
 - `--no-full-page`：取消截取完整页面，只截取当前视口
 
 输出文件支持：
@@ -59,6 +61,8 @@ wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 本地 HTML 文件路径会自动转换为 `file://` URL；已有的 `file://`、`http://` 和 `https://` URL 会原样使用；其他无协议输入会默认补 `http://`。
 
 `-x` 和 `-y` 设置的是浏览器视口尺寸，实际输出像素尺寸还会乘以 `--device-scale-factor`。例如默认 `-d 2` 时，`-x 860 -y 600` 会输出约 `1720x1200` 像素；如果需要保持旧的输出尺寸，可以设置 `-d 1`。
+
+`--enhance` 会在截图完成后使用 `sharp` 对输出图片做轻微锐化和格式编码优化，适合提升文字、边框和 UI 边缘观感。它不会进行 AI 超分，也不会改变图片宽高；如果需要更高像素尺寸，请优先调高 `--device-scale-factor`。
 
 ## 本地开发
 

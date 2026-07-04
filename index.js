@@ -199,6 +199,14 @@ function buildNavigationConfig(options) {
     };
 }
 
+function buildEnhancementConfig(options, screenshot) {
+    return {
+        enabled: options.enhance === true,
+        type: screenshot.type,
+        quality: screenshot.quality,
+    };
+}
+
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -253,10 +261,37 @@ async function waitForPageReadiness(page, navigation) {
     }
 }
 
+async function enhanceImage(outputFile, enhancement, sharpLib = require('sharp')) {
+    if (!enhancement.enabled) {
+        return;
+    }
+
+    try {
+        const input = await fs.promises.readFile(outputFile);
+        let pipeline = sharpLib(input).sharpen();
+
+        if (enhancement.type === 'jpeg') {
+            pipeline = pipeline.jpeg({
+                quality: enhancement.quality,
+                mozjpeg: true,
+            });
+        } else {
+            pipeline = pipeline.png({
+                compressionLevel: 9,
+            });
+        }
+
+        await fs.promises.writeFile(outputFile, await pipeline.toBuffer());
+    } catch (err) {
+        throw new Error(`Failed to enhance image: ${err.message}`);
+    }
+}
+
 async function capture(inputFile, outputFile, options = {}, browserLib = puppeteer) {
     const newInputFile = await normalizeInputFile(inputFile);
     const { viewport, screenshot } = buildScreenshotConfig(options, outputFile);
     const navigation = buildNavigationConfig(options);
+    const enhancement = buildEnhancementConfig(options, screenshot);
     let browser;
 
     try {
@@ -273,6 +308,7 @@ async function capture(inputFile, outputFile, options = {}, browserLib = puppete
         }
         await waitForPageReadiness(page, navigation);
         await page.screenshot(screenshot);
+        await enhanceImage(screenshot.path, enhancement);
     } finally {
         if (browser) {
             await browser.close();
@@ -295,6 +331,7 @@ function createProgram() {
         .option('--delay <ms>', '页面加载完成后额外等待的毫秒数，默认0')
         .option('--wait-fonts', '截图前等待页面字体加载完成')
         .option('--wait-images', '截图前等待页面图片加载或解码完成')
+        .option('--enhance', '截图后进行轻微锐化和格式编码优化，不改变图片尺寸')
         .option('--no-full-page', '取消截取完整页面, 默认宽为860， 高为600')
         .action(async function (inputFile, outputFile) {
             await capture(inputFile, outputFile, program.opts());
@@ -319,6 +356,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+    buildEnhancementConfig,
     buildNavigationConfig,
     buildScreenshotConfig,
     buildLaunchOptions,
@@ -326,6 +364,7 @@ module.exports = {
     createProgram,
     findSystemChrome,
     formatBrowserLaunchError,
+    enhanceImage,
     getSystemChromeCandidates,
     getScreenshotType,
     normalizeInputFile,

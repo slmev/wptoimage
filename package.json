@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "commander": "^13.1.0",
-    "puppeteer": "^24.43.1"
+    "puppeteer": "^24.43.1",
+    "sharp": "^0.35.3"
   }
 }

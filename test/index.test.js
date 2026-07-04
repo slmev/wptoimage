@@ -1,14 +1,18 @@
 const assert = require('assert/strict');
 const { execFile } = require('child_process');
+const fs = require('fs/promises');
+const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const { pathToFileURL } = require('url');
 const { promisify } = require('util');
 
 const {
+    buildEnhancementConfig,
     buildLaunchOptions,
     buildNavigationConfig,
     buildScreenshotConfig,
+    enhanceImage,
     findSystemChrome,
     formatBrowserLaunchError,
     getSystemChromeCandidates,
@@ -121,6 +125,22 @@ test('buildScreenshotConfig does not pass quality for png output', () => {
     assert.equal(Object.hasOwn(result.screenshot, 'quality'), false);
 });
 
+test('buildEnhancementConfig only enables explicit enhancement', () => {
+    const jpegScreenshot = buildScreenshotConfig({ shotQ: '75' }, 'out.jpeg').screenshot;
+    const pngScreenshot = buildScreenshotConfig({}, 'out.png').screenshot;
+
+    assert.deepEqual(buildEnhancementConfig({}, jpegScreenshot), {
+        enabled: false,
+        type: 'jpeg',
+        quality: 75,
+    });
+    assert.deepEqual(buildEnhancementConfig({ enhance: true }, pngScreenshot), {
+        enabled: true,
+        type: 'png',
+        quality: undefined,
+    });
+});
+
 test('buildNavigationConfig uses safe defaults', () => {
     assert.deepEqual(buildNavigationConfig({}), {
         delay: 0,
@@ -199,6 +219,50 @@ test('parseWaitUntil only allows Puppeteer wait events', () => {
     assert.throws(() => parseWaitUntil('idle'), /wait-until must be one of/);
 });
 
+test('enhanceImage sharpens and rewrites jpeg output', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wptoimage-'));
+    const outputFile = path.join(tempDir, 'out.jpg');
+    const calls = [];
+    const sharpMock = (input) => {
+        assert.equal(input.toString(), 'input');
+
+        return {
+            sharpen() {
+                calls.push('sharpen');
+                return this;
+            },
+            jpeg(options) {
+                calls.push(['jpeg', options]);
+                return this;
+            },
+            png(options) {
+                calls.push(['png', options]);
+                return this;
+            },
+            toBuffer() {
+                return Promise.resolve(Buffer.from('output'));
+            },
+        };
+    };
+
+    try {
+        await fs.writeFile(outputFile, 'input');
+        await enhanceImage(outputFile, {
+            enabled: true,
+            type: 'jpeg',
+            quality: 75,
+        }, sharpMock);
+
+        assert.deepEqual(calls, [
+            'sharpen',
+            ['jpeg', { quality: 75, mozjpeg: true }],
+        ]);
+        assert.equal(await fs.readFile(outputFile, 'utf8'), 'output');
+    } finally {
+        await fs.rm(tempDir, { recursive: true, force: true });
+    }
+});
+
 async function assertCliFails(args, messagePattern) {
     await assert.rejects(
         execFileAsync(process.execPath, [binPath, ...args]),
@@ -213,6 +277,7 @@ async function assertCliFails(args, messagePattern) {
 test('CLI rejects unsupported output extensions without launching a browser', async () => {
     await assertCliFails(['demo.html', 'out.webp'], /must end with/);
     await assertCliFails(['--wait-fonts', '--wait-images', 'demo.html', 'out.webp'], /must end with/);
+    await assertCliFails(['--enhance', 'demo.html', 'out.webp'], /must end with/);
 });
 
 test('CLI rejects invalid width, height, and quality values', async () => {

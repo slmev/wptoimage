@@ -39,15 +39,13 @@ wptoimage --no-full-page -x 1200 -y 800 -q 90 demo.html demo.jpeg
 
 ## 参数说明
 
-| 参数 | 全名 | 说明 |
-| --- | --- | --- |
-| `-x` | `--shot-w <int>` | 设置视口宽度，必须是正整数，默认 `860` |
-| `-y` | `--shot-h <int>` | 设置视口高度，必须是正整数，默认 `600` |
-| `-q` | `--shot-q <int>` | 设置 JPEG 质量，范围 `1-100`，默认 `100`，仅对 `.jpg/.jpeg` 生效 |
-| `-d` | `--device-scale-factor <number>` | 设置设备像素比，默认 `2`，值越高图片越清晰但文件越大；如需旧尺寸可设为 `1` |
-| - | `--wait-until <event>` | 设置页面等待事件，可选 `load`、`domcontentloaded`、`networkidle0`、`networkidle2`，默认 `load` |
-| - | `--delay <ms>` | 页面加载完成后额外等待的毫秒数，默认 `0` |
-| - | `--no-full-page` | 取消截取完整页面，只截取当前视口 |
+- `-x, --shot-w <int>`：设置视口宽度，必须是正整数，默认 `860`
+- `-y, --shot-h <int>`：设置视口高度，必须是正整数，默认 `600`
+- `-q, --shot-q <int>`：设置 JPEG 质量，范围 `1-100`，默认 `100`，仅对 `.jpg/.jpeg` 生效
+- `-d, --device-scale-factor <number>`：设置设备像素比，默认 `2`，值越高图片越清晰但文件越大；如需旧尺寸可设为 `1`
+- `--wait-until <event>`：设置页面等待事件，可选 `load`、`domcontentloaded`、`networkidle0`、`networkidle2`，默认 `load`
+- `--delay <ms>`：页面加载完成后额外等待的毫秒数，默认 `0`
+- `--no-full-page`：取消截取完整页面，只截取当前视口
 
 输出文件支持：
 

@@ -27,7 +27,7 @@
     "test": "node --test test/*.test.js",
     "test:e2e": "node --test test/*.e2e.js",
     "test:all": "npm test && npm run test:e2e",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm run test:all"
   },
   "dependencies": {
     "commander": "^13.1.0",

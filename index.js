@@ -4,10 +4,12 @@ const { Command } = require("commander");
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { pathToFileURL } = require('url');
 const appInfo = require("./package.json");
 
-const defaultBrowserArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-crash-reporter', '--disable-crashpad'];
+const defaultBrowserArgs = ['--disable-crash-reporter', '--disable-crashpad'];
+const sandboxBypassArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
 const waitUntilValues = ['load', 'domcontentloaded', 'networkidle0', 'networkidle2'];
 
 function parsePositiveInt(value, name) {
@@ -81,13 +83,45 @@ async function fileExists(inputFile, access = fs.promises.access) {
     }
 }
 
+function looksLikeLocalPath(inputFile) {
+    if (path.isAbsolute(inputFile) || /^~[\\/]/.test(inputFile) || /^\.{1,2}[\\/]/.test(inputFile)) {
+        return true;
+    }
+
+    if (/[\\/]/.test(inputFile)) {
+        const firstSegment = inputFile.split(/[\\/]/)[0];
+
+        return firstSegment !== 'localhost' && !firstSegment.includes('.') && !firstSegment.includes(':');
+    }
+
+    return ['.html', '.htm', '.xhtml'].includes(path.extname(inputFile).toLowerCase());
+}
+
+function expandHomePath(inputFile) {
+    if (inputFile === '~') {
+        return os.homedir();
+    }
+
+    if (/^~[\\/]/.test(inputFile)) {
+        return path.join(os.homedir(), inputFile.slice(2));
+    }
+
+    return inputFile;
+}
+
 async function normalizeInputFile(inputFile, access = fs.promises.access) {
     if (/^(?:https?|file):\/\//i.test(inputFile)) {
         return inputFile;
     }
 
-    if (await fileExists(inputFile, access)) {
-        return pathToFileURL(path.resolve(inputFile)).href;
+    const localInputFile = expandHomePath(inputFile);
+
+    if (await fileExists(localInputFile, access)) {
+        return pathToFileURL(path.resolve(localInputFile)).href;
+    }
+
+    if (looksLikeLocalPath(inputFile)) {
+        throw new Error(`local input file not found: ${inputFile}`);
     }
 
     return `http://${inputFile}`;
@@ -128,7 +162,7 @@ function findSystemChrome(existsSync = fs.existsSync, platform = process.platfor
 
 function buildLaunchOptions(options = {}, existsSync = fs.existsSync, platform = process.platform, env = process.env) {
     const launchOptions = {
-        args: defaultBrowserArgs,
+        args: options.sandbox === true ? defaultBrowserArgs : [...sandboxBypassArgs, ...defaultBrowserArgs],
     };
     const executablePath = options.executablePath || (!env.PUPPETEER_EXECUTABLE_PATH && findSystemChrome(existsSync, platform, env));
 
@@ -188,12 +222,15 @@ function buildScreenshotConfig(options, outputFile) {
 }
 
 function buildNavigationConfig(options) {
+    const timeout = options.timeout !== undefined ? parseNonNegativeInt(options.timeout, 'timeout') : 60000;
+
     return {
         delay: options.delay ? parseNonNegativeInt(options.delay, 'delay') : 0,
+        timeout,
         waitFonts: options.waitFonts === true,
         waitImages: options.waitImages === true,
         goto: {
-            timeout: 60000,
+            timeout,
             waitUntil: options.waitUntil ? parseWaitUntil(options.waitUntil) : 'load',
         },
     };
@@ -209,6 +246,19 @@ function buildEnhancementConfig(options, screenshot) {
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout(promise, ms, label) {
+    if (ms === 0) {
+        return promise;
+    }
+
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    });
+
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function waitForFonts(page) {
@@ -253,11 +303,11 @@ async function waitForImages(page) {
 
 async function waitForPageReadiness(page, navigation) {
     if (navigation.waitFonts) {
-        await waitForFonts(page);
+        await withTimeout(waitForFonts(page), navigation.timeout, 'waiting for fonts');
     }
 
     if (navigation.waitImages) {
-        await waitForImages(page);
+        await withTimeout(waitForImages(page), navigation.timeout, 'waiting for images');
     }
 }
 
@@ -307,6 +357,7 @@ async function capture(inputFile, outputFile, options = {}, browserLib = puppete
             await delay(navigation.delay);
         }
         await waitForPageReadiness(page, navigation);
+        await fs.promises.mkdir(path.dirname(screenshot.path), { recursive: true });
         await page.screenshot(screenshot);
         await enhanceImage(screenshot.path, enhancement);
     } finally {
@@ -328,10 +379,12 @@ function createProgram() {
         .option('-q, --shot-q <int>', '设置图片质量，只有jpg类型生效，1-100之间')
         .option('-d, --device-scale-factor <number>', '设置设备像素比，默认2，值越高图片越清晰但文件越大')
         .option('--wait-until <event>', '设置页面等待事件，可选 load、domcontentloaded、networkidle0、networkidle2，默认 load')
+        .option('--timeout <ms>', '设置页面加载、字体和图片等待超时时间，默认60000；设为0可禁用超时')
         .option('--delay <ms>', '页面加载完成后额外等待的毫秒数，默认0')
         .option('--wait-fonts', '截图前等待页面字体加载完成')
         .option('--wait-images', '截图前等待页面图片加载或解码完成')
         .option('--enhance', '截图后进行轻微锐化和格式编码优化，不改变图片尺寸')
+        .option('--sandbox', '启用浏览器沙箱；默认禁用以兼容部分Linux服务器环境')
         .option('--no-full-page', '取消截取完整页面, 默认宽为860， 高为600')
         .action(async function (inputFile, outputFile) {
             await capture(inputFile, outputFile, program.opts());
@@ -367,6 +420,8 @@ module.exports = {
     enhanceImage,
     getSystemChromeCandidates,
     getScreenshotType,
+    expandHomePath,
+    looksLikeLocalPath,
     normalizeInputFile,
     parseNonNegativeInt,
     parsePositiveInt,
@@ -374,6 +429,7 @@ module.exports = {
     parseQuality,
     parseWaitUntil,
     runCli,
+    withTimeout,
     waitForFonts,
     waitForImages,
     waitForPageReadiness,

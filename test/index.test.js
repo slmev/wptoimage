@@ -12,17 +12,21 @@ const {
     buildLaunchOptions,
     buildNavigationConfig,
     buildScreenshotConfig,
+    capture,
     enhanceImage,
+    expandHomePath,
     findSystemChrome,
     formatBrowserLaunchError,
     getSystemChromeCandidates,
     getScreenshotType,
+    looksLikeLocalPath,
     normalizeInputFile,
     parseNonNegativeInt,
     parsePositiveInt,
     parsePositiveNumber,
     parseQuality,
     parseWaitUntil,
+    withTimeout,
 } = require('../index');
 
 const execFileAsync = promisify(execFile);
@@ -53,8 +57,36 @@ test('normalizeInputFile converts existing local files to file URLs', async () =
     assert.equal(result, pathToFileURL(path.resolve('demo.html')).href);
 });
 
+test('normalizeInputFile expands home-relative local files before access', async () => {
+    const expanded = path.join(os.homedir(), 'demo.html');
+    const result = await normalizeInputFile('~/demo.html', async (inputFile) => {
+        assert.equal(inputFile, expanded);
+    });
+
+    assert.equal(result, pathToFileURL(path.resolve(expanded)).href);
+});
+
 test('normalizeInputFile adds http protocol for non-local inputs without protocol', async () => {
     assert.equal(await normalizeInputFile('example.com/page', accessFails), 'http://example.com/page');
+});
+
+test('normalizeInputFile rejects missing local-looking paths', async () => {
+    await assert.rejects(() => normalizeInputFile('./missing.html', accessFails), /local input file not found/);
+    await assert.rejects(() => normalizeInputFile('missing.html', accessFails), /local input file not found/);
+    await assert.rejects(() => normalizeInputFile('pages/missing.html', accessFails), /local input file not found/);
+});
+
+test('looksLikeLocalPath distinguishes paths from hostnames', () => {
+    assert.equal(looksLikeLocalPath('./demo.html'), true);
+    assert.equal(looksLikeLocalPath('demo.html'), true);
+    assert.equal(looksLikeLocalPath('pages/demo.html'), true);
+    assert.equal(looksLikeLocalPath('example.com/page'), false);
+    assert.equal(looksLikeLocalPath('localhost:3000/page'), false);
+});
+
+test('expandHomePath expands tilde paths only', () => {
+    assert.equal(expandHomePath('~/demo.html'), path.join(os.homedir(), 'demo.html'));
+    assert.equal(expandHomePath('demo.html'), 'demo.html');
 });
 
 test('getSystemChromeCandidates includes common local browser paths', () => {
@@ -74,6 +106,13 @@ test('buildLaunchOptions falls back to system Chrome when Puppeteer cache is mis
 
     assert.equal(result.executablePath, existing);
     assert.ok(result.args.includes('--no-sandbox'));
+});
+
+test('buildLaunchOptions can enable browser sandbox', () => {
+    const result = buildLaunchOptions({ sandbox: true }, () => false, 'linux', {});
+
+    assert.equal(result.args.includes('--no-sandbox'), false);
+    assert.equal(result.args.includes('--disable-setuid-sandbox'), false);
 });
 
 test('buildLaunchOptions respects PUPPETEER_EXECUTABLE_PATH', () => {
@@ -144,6 +183,7 @@ test('buildEnhancementConfig only enables explicit enhancement', () => {
 test('buildNavigationConfig uses safe defaults', () => {
     assert.deepEqual(buildNavigationConfig({}), {
         delay: 0,
+        timeout: 60000,
         waitFonts: false,
         waitImages: false,
         goto: {
@@ -157,17 +197,24 @@ test('buildNavigationConfig parses wait event and delay', () => {
     assert.deepEqual(buildNavigationConfig({
         waitUntil: 'networkidle0',
         delay: '500',
+        timeout: '1000',
         waitFonts: true,
         waitImages: true,
     }), {
         delay: 500,
+        timeout: 1000,
         waitFonts: true,
         waitImages: true,
         goto: {
-            timeout: 60000,
+            timeout: 1000,
             waitUntil: 'networkidle0',
         },
     });
+});
+
+test('buildNavigationConfig allows disabling timeout', () => {
+    assert.equal(buildNavigationConfig({ timeout: '0' }).timeout, 0);
+    assert.throws(() => buildNavigationConfig({ timeout: '-1' }), /timeout must be a non-negative integer/);
 });
 
 test('formatBrowserLaunchError includes actionable browser setup hints', () => {
@@ -263,6 +310,44 @@ test('enhanceImage sharpens and rewrites jpeg output', async () => {
     }
 });
 
+test('withTimeout rejects pending work after the timeout', async () => {
+    await assert.rejects(
+        () => withTimeout(new Promise(() => {}), 1, 'waiting for test'),
+        /waiting for test timed out after 1ms/
+    );
+});
+
+test('capture creates the output directory before screenshotting', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wptoimage-'));
+    const inputFile = path.join(tempDir, 'input.html');
+    const outputFile = path.join(tempDir, 'nested', 'out.png');
+    const browserLib = {
+        async launch() {
+            return {
+                async newPage() {
+                    return {
+                        async setViewport() {},
+                        async goto() {},
+                        async screenshot(options) {
+                            await fs.writeFile(options.path, 'image');
+                        },
+                    };
+                },
+                async close() {},
+            };
+        },
+    };
+
+    try {
+        await fs.writeFile(inputFile, '<!doctype html><title>wptoimage</title>');
+        await capture(inputFile, outputFile, { fullPage: false }, browserLib);
+
+        assert.equal(await fs.readFile(outputFile, 'utf8'), 'image');
+    } finally {
+        await fs.rm(tempDir, { recursive: true, force: true });
+    }
+});
+
 async function assertCliFails(args, messagePattern) {
     await assert.rejects(
         execFileAsync(process.execPath, [binPath, ...args]),
@@ -286,6 +371,7 @@ test('CLI rejects invalid width, height, and quality values', async () => {
     await assertCliFails(['-q', '101', 'demo.html', 'out.jpg'], /shot-q must be between 1 and 100/);
     await assertCliFails(['-d', '0', 'demo.html', 'out.jpg'], /device-scale-factor must be a positive number/);
     await assertCliFails(['--delay', '-1', 'demo.html', 'out.jpg'], /delay must be a non-negative integer/);
+    await assertCliFails(['--timeout', '-1', 'demo.html', 'out.jpg'], /timeout must be a non-negative integer/);
     await assertCliFails(['--wait-until', 'idle', 'demo.html', 'out.jpg'], /wait-until must be one of/);
 });
 
